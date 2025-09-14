@@ -1,10 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+
+const NATIVE_LANG = { ar: "العربية", en: "English" };
+const LANG_CODE = { ar: "AE", en: "GB" };
 
 export default function Header() {
   // ===== حالات عامة =====
   const [scrolled, setScrolled] = useState(false);
   const [active, setActive] = useState("#home");
   const [openMenu, setOpenMenu] = useState(false);
+
+  // الصفحة فاتحة دائمًا
+  const onLightBg = true;
 
   // ===== لغة/اتجاه =====
   const [lang, setLang] = useState(() => {
@@ -18,10 +24,15 @@ export default function Header() {
   });
   const [openLang, setOpenLang] = useState(false);
 
+  // refs
   const langBtnRef = useRef(null);
   const langMenuRef = useRef(null);
   const menuBtnRef = useRef(null);
   const menuPanelRef = useRef(null);
+
+  const capsuleRef = useRef(null);
+  const linkRefs = useRef({});
+  const sliderRef = useRef(null);
 
   // طبّق dir/lang واحفظ اللغة
   useEffect(() => {
@@ -52,16 +63,14 @@ export default function Header() {
         openLang &&
         !langBtnRef.current?.contains(e.target) &&
         !langMenuRef.current?.contains(e.target)
-      ) {
+      )
         setOpenLang(false);
-      }
       if (
         openMenu &&
         !menuBtnRef.current?.contains(e.target) &&
         !menuPanelRef.current?.contains(e.target)
-      ) {
+      )
         setOpenMenu(false);
-      }
     }
     document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onClick);
@@ -71,13 +80,25 @@ export default function Header() {
     };
   }, [openLang, openMenu]);
 
-  // روابط وتسميات
+  // روابط
   const LINKS = useMemo(
     () => [
-      { href: "#home", label: { ar: "الرئيسية", en: "Home" } },
-      { href: "#classes", label: { ar: "الحصص", en: "Classes" } },
-      { href: "#trainers", label: { ar: "المدربون", en: "Trainers" } },
-      { href: "#contact", label: { ar: "تواصل", en: "Contact" } },
+      { href: "#home", label: { ar: "الرئيسية", en: "Home" }, icon: HomeIcon },
+      {
+        href: "#classes",
+        label: { ar: "الحصص", en: "Classes" },
+        icon: DumbbellIcon,
+      },
+      {
+        href: "#trainers",
+        label: { ar: "المدربون", en: "Trainers" },
+        icon: UserIcon,
+      },
+      {
+        href: "#contact",
+        label: { ar: "تواصل", en: "Contact" },
+        icon: PhoneIcon,
+      },
     ],
     []
   );
@@ -86,9 +107,6 @@ export default function Header() {
     join: { ar: "انضم الآن", en: "Join Now" },
     openMenu: { ar: "افتح القائمة", en: "Open menu" },
     closeMenu: { ar: "أغلق القائمة", en: "Close menu" },
-    langSwitcher: { ar: "مبدّل اللغة", en: "Language switcher" },
-    arabic: { ar: "العربية", en: "Arabic" },
-    english: { ar: "الإنجليزية", en: "English" },
   };
   const t = (obj) => obj?.[lang] ?? obj?.en ?? "";
 
@@ -107,14 +125,13 @@ export default function Header() {
     const sections = ids
       .map((id) => document.getElementById(id))
       .filter(Boolean);
-    if (sections.length === 0) return;
-
+    if (!sections.length) return;
     const io = new IntersectionObserver(
       (entries) => {
-        const visible = entries
+        const vis = entries
           .filter((e) => e.isIntersecting)
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-        if (visible[0]) setActive(`#${visible[0].target.id}`);
+        if (vis[0]) setActive(`#${vis[0].target.id}`);
       },
       { rootMargin: "-20% 0px -55% 0px", threshold: [0, 0.2, 0.5, 0.8, 1] }
     );
@@ -134,8 +151,8 @@ export default function Header() {
     (e) => {
       if (!href.startsWith("#")) return;
       e.preventDefault();
-      const id = href.slice(1);
-      const el = document.getElementById(id);
+      const id = href.slice(1),
+        el = document.getElementById(id);
       setActive(href);
       const prefersReduced = window.matchMedia?.(
         "(prefers-reduced-motion: reduce)"
@@ -152,116 +169,176 @@ export default function Header() {
       setOpenMenu(false);
     };
 
-  // شعار دمبل بسيط
-  const DumbbellIcon = (props) => (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <path d="M3 9h2v6H3V9zm2-2h2v10H5V7zm12 0h2v10h-2V7zm2 2h2v6h-2V9zM9 11h6v2H9v-2z" />
-    </svg>
-  );
+  // ألوان النص (داكن على خلفية فاتحة)
+  const headerText = onLightBg || scrolled ? "text-neutral-900" : "text-white";
+  const linkIdle =
+    onLightBg || scrolled
+      ? "text-neutral-600 hover:text-neutral-900"
+      : "text-white/80 hover:text-white";
 
-  // ألوان النص
-  const headerText = scrolled ? "text-neutral-900" : "text-white";
-  const linkIdle = scrolled
-    ? "text-neutral-700 hover:text-neutral-900"
-    : "text-white/70 hover:text-white";
-
-  // أي جانب يفتح منه الـSidebar
+  // Sidebar RTL/LTR
   const sideClass = lang === "ar" ? "right-0" : "left-0";
   const translateStart =
     lang === "ar" ? "translate-x-full" : "-translate-x-full";
   const translateEnd = "translate-x-0";
 
+  // تحريك السلايدر (محايد للـRTL)
+  const moveSlider = useCallback(() => {
+    const capsule = capsuleRef.current;
+    const slider = sliderRef.current;
+    const current = linkRefs.current[active];
+    if (!capsule || !slider || !current) return;
+
+    let scroll = capsule.scrollLeft;
+    if (document?.dir === "rtl" && scroll < 0) scroll = Math.abs(scroll);
+
+    const left = current.offsetLeft - scroll;
+    const width = current.offsetWidth;
+
+    slider.style.width = `${width}px`;
+    slider.style.transform = `translateX(${left}px)`;
+    slider.style.transition = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)"
+    )?.matches
+      ? "none"
+      : "transform 220ms, width 220ms";
+  }, [active]);
+
+  useEffect(() => {
+    moveSlider();
+    const onResize = () => moveSlider();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [moveSlider, lang, scrolled]);
+
   return (
     <header
       className={[
         "sticky top-0 z-40 transition-all duration-500",
-        scrolled
-          ? "backdrop-blur supports-[backdrop-filter]:bg-white/65 dark:supports-[backdrop-filter]:bg-neutral-900/55 border-b border-black/5 shadow-sm"
-          : "bg-transparent",
+        // Glassmorphism دائم (اختيارك 7)
+        "backdrop-blur supports-[backdrop-filter]:bg-white/70 border-b border-black/5 shadow-[0_8px_30px_rgb(0_0_0/0.06)]",
       ].join(" ")}
       role="banner"
     >
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div className="h-14 flex items-center justify-between gap-4">
-          {/* Logo */}
+      {/* أنماط بسيطة للـpulse الناعم + underline من المنتصف (اختياراتك 3 و9) */}
+      <style>{`
+        @keyframes pulse-soft { 
+          0%, 92%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(239,68,68,0)); }
+          96% { transform: scale(1.035); filter: drop-shadow(0 6px 10px rgba(239,68,68,.35)); }
+        }
+        .animate-softpulse { animation: pulse-soft 8s ease-in-out infinite; }
+        .hover-underline::after {
+          content: ""; position: absolute; left: 50%; bottom: 0;
+          width: 64%; height: 2px; background: currentColor;
+          transform: translateX(-50%) scaleX(0); transform-origin: center;
+          transition: transform 200ms ease;
+          opacity: .9;
+        }
+        .hover-underline:hover::after { transform: translateX(-50%) scaleX(1); }
+      `}</style>
+
+      <div className="mx-auto max-w-7xl px-3 sm:px-5 lg:px-8">
+        {/* Grid: شعار | وسط مرن | أدوات */}
+        <div className="h-14 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 md:gap-3">
+          {/* الشعار */}
           <a
             href="#home"
             onClick={handleLinkClick("#home")}
             aria-label="GYMX Home"
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 justify-self-start"
           >
-            <span className={`md:hidden inline-flex w-6 h-6 ${headerText}`}>
+            <span className={`sm:hidden inline-flex w-6 h-6 ${headerText}`}>
               <DumbbellIcon />
             </span>
             <span
               className={[
-                "hidden md:inline font-extrabold tracking-tight text-lg sm:text-xl lg:text-2xl origin-left transition-transform duration-500",
+                "hidden sm:inline font-extrabold tracking-tight text-[18px] md:text-xl lg:text-2xl",
                 headerText,
-                scrolled ? "scale-[0.95]" : "scale-100",
               ].join(" ")}
             >
               GYM<span className="font-black">X</span>
             </span>
           </a>
 
-          {/* Desktop Nav */}
-          <nav
-            className="hidden lg:flex items-center gap-3 xl:gap-6"
-            aria-label="Primary"
-          >
-            {LINKS.map((l) => {
-              const isActive = active === l.href;
-              return (
-                <a
-                  key={l.href}
-                  href={l.href}
-                  onClick={handleLinkClick(l.href)}
-                  aria-current={isActive ? "page" : undefined}
-                  className={[
-                    "group relative px-3 py-2 text-[15px] xl:text-[16px] rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500",
-                    isActive ? headerText + " font-medium" : linkIdle,
-                    isActive && scrolled ? "bg-neutral-900/5" : "",
-                    "hover:-translate-y-[1px]",
-                  ].join(" ")}
-                >
-                  {t(l.label)}
-                  {/* Underline أنيق بدون لمعة */}
-                  <span
+          {/* كبسولة الناڤ (وسط) */}
+          <nav aria-label="Primary" className="justify-self-center w-full">
+            <div
+              ref={capsuleRef}
+              className={[
+                "relative hidden sm:inline-flex items-center gap-1.5 rounded-[28px] px-2 py-1",
+                "backdrop-blur",
+                "bg-white/90 border border-black/5 shadow-sm",
+                "mx-auto justify-center",
+                // حدود عرض + تمرير أفقي عند الحاجة
+                "w-full max-w-[calc(100vw-220px)] md:max-w-[calc(100vw-260px)] lg:max-w-[760px]",
+                "overflow-x-auto overscroll-x-contain whitespace-nowrap",
+                "[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
+              ].join(" ")}
+            >
+              {/* Slider نشط */}
+              <span
+                ref={sliderRef}
+                aria-hidden
+                className="absolute bottom-0 left-0 h-[2px] rounded-full bg-blue-600/90"
+                style={{ width: 0, transform: "translateX(0px)" }}
+              />
+
+              {LINKS.map((l) => {
+                const Icon = l.icon;
+                const isActive = active === l.href;
+                return (
+                  <a
+                    key={l.href}
+                    ref={(el) => (linkRefs.current[l.href] = el)}
+                    href={l.href}
+                    onClick={handleLinkClick(l.href)}
+                    aria-current={isActive ? "page" : undefined}
                     className={[
-                      "pointer-events-none absolute left-2 right-2 -bottom-1 h-[2px]",
-                      "bg-gradient-to-r from-indigo-500 via-blue-500 to-indigo-500",
-                      "transition-all duration-300 origin-center rounded-full",
-                      isActive
-                        ? "opacity-100 scale-x-100"
-                        : "opacity-0 scale-x-0 group-hover:opacity-100 group-hover:scale-x-100",
+                      "group relative rounded-full transition-colors hover:bg-neutral-900/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40",
+                      // (2) Hover واضح
+                      "px-2.5 sm:px-3 md:px-3.5 lg:px-4 py-2 md:py-1.5",
+                      "text-[14px] sm:text-[15px] lg:text-[16px]",
+                      isActive ? headerText + " font-medium" : linkIdle,
+                      "hover-underline", // (9) خط من المنتصف عند hover
                     ].join(" ")}
-                  />
-                </a>
-              );
-            })}
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      {/* (1) أيقونة قبل النص */}
+                      <Icon
+                        className={[
+                          "w-[18px] h-[18px]",
+                          isActive
+                            ? "opacity-100"
+                            : "opacity-80 group-hover:opacity-100",
+                        ].join(" ")}
+                      />
+                      {t(l.label)}
+                    </span>
+                  </a>
+                );
+              })}
+            </div>
           </nav>
 
-          {/* يمين: مبدّل لغة + CTA + زر منيو */}
-          <div className="flex items-center gap-2">
-            {/* Language Switcher */}
+          {/* أدوات يمين */}
+          <div className="justify-self-end flex items-center gap-1.5 sm:gap-2">
+            {/* مبدّل اللغة */}
             <div className="relative">
               <button
                 ref={langBtnRef}
                 type="button"
                 onClick={() => setOpenLang((v) => !v)}
                 className={[
-                  "inline-flex items-center gap-1 rounded-xl px-3 py-2 text-sm font-medium transition",
-                  scrolled
-                    ? "bg-neutral-900 text-white hover:bg-neutral-800"
-                    : "bg-white/85 text-neutral-900 hover:bg-white",
+                  "inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-sm font-medium transition",
+                  "bg-neutral-900 text-white hover:bg-neutral-800",
                   "focus:outline-none focus-visible:ring focus-visible:ring-blue-500/50",
                 ].join(" ")}
                 aria-haspopup="menu"
                 aria-expanded={openLang}
-                aria-label={t(TX.langSwitcher)}
+                aria-label={lang === "ar" ? "مبدّل اللغة" : "Language switcher"}
               >
                 <span aria-hidden>{lang === "ar" ? "🇦🇪" : "🇬🇧"}</span>
-                {lang === "ar" ? "AR" : "EN"}
+                {lang === "ar" ? "AR" : "EN"}{" "}
                 <span aria-hidden className="opacity-70">
                   ▾
                 </span>
@@ -270,7 +347,13 @@ export default function Header() {
               {openLang && (
                 <div
                   ref={langMenuRef}
-                  className="absolute mt-2 min-w-[160px] rounded-xl border border-black/5 bg-white/95 text-neutral-900 shadow-lg backdrop-blur p-1 right-0"
+                  className={[
+                    "absolute z-50 mt-2 min-w-[160px] max-w-[calc(100vw-24px)]",
+                    "rounded-xl border border-black/5 bg-white/95 text-neutral-900 shadow-lg backdrop-blur p-1",
+                    lang === "ar"
+                      ? "right-0 left-auto origin-top-right"
+                      : "left-0 right-auto origin-top-left",
+                  ].join(" ")}
                   role="menu"
                 >
                   <button
@@ -279,13 +362,10 @@ export default function Header() {
                       setLang("ar");
                       setOpenLang(false);
                     }}
-                    className={[
-                      "w-full text-left rounded-lg px-3 py-2 text-sm hover:bg-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-                      lang === "ar" ? "font-semibold" : "",
-                    ].join(" ")}
+                    className="w-full text-left rounded-lg px-3 py-2 text-sm hover:bg-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                     role="menuitem"
                   >
-                    🇦🇪 {t(TX.arabic)}
+                    🇦🇪 {NATIVE_LANG.ar} {LANG_CODE.ar}
                   </button>
                   <button
                     type="button"
@@ -293,41 +373,35 @@ export default function Header() {
                       setLang("en");
                       setOpenLang(false);
                     }}
-                    className={[
-                      "w-full text-left rounded-lg px-3 py-2 text-sm hover:bg-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-                      lang === "en" ? "font-semibold" : "",
-                    ].join(" ")}
+                    className="w-full text-left rounded-lg px-3 py-2 text-sm hover:bg-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                     role="menuitem"
                   >
-                    🇬🇧 {t(TX.english)}
+                    🇬🇧 {NATIVE_LANG.en} {LANG_CODE.en}
                   </button>
                 </div>
               )}
             </div>
 
-            {/* CTA */}
+            {/* (3) CTA نبض لطيف */}
             <button
               className={[
-                "hidden lg:inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold transition-all",
-                scrolled
-                  ? "bg-neutral-900 text-white hover:bg-neutral-800"
-                  : "bg-white text-neutral-900 border border-white/20 shadow-sm hover:shadow",
-                "focus:outline-none focus-visible:ring focus-visible:ring-blue-500/40",
-                "hover:scale-[1.02]",
+                "hidden lg:inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold transition",
+                "bg-gradient-to-r from-red-500 to-red-600 text-white hover:opacity-95",
+                "focus:outline-none focus-visible:ring focus-visible:ring-blue-400/50",
+                "animate-softpulse",
               ].join(" ")}
             >
               {t(TX.join)}
             </button>
 
-            {/* زر منيو للموبايل */}
+            {/* زر منيو (XS وMD الضيقة) */}
             <button
               ref={menuBtnRef}
               onClick={() => setOpenMenu((v) => !v)}
               className={[
-                "lg:hidden inline-flex items-center justify-center rounded-xl w-10 h-10 transition-colors",
-                scrolled
-                  ? "text-neutral-900 hover:bg-black/5"
-                  : "text-white hover:bg-white/10",
+                "inline-flex items-center justify-center rounded-xl w-10 h-10 transition-colors",
+                "sm:hidden md:inline-flex md:lg:hidden",
+                "text-neutral-900 hover:bg-black/5",
                 "focus:outline-none focus-visible:ring focus-visible:ring-blue-500/40",
               ].join(" ")}
               aria-label={openMenu ? t(TX.closeMenu) : t(TX.openMenu)}
@@ -348,18 +422,18 @@ export default function Header() {
         </div>
       </div>
 
-      {/* خط زخرفي سفلي */}
-      <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+      {/* خط زخرفي سفلي خفيّف */}
+      <div className="h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
 
-      {/* Mobile Sidebar */}
+      {/* Sidebar للموبايل */}
       <div
         className={[
-          "lg:hidden fixed inset-0 z-50",
+          "fixed inset-0 z-50",
           openMenu ? "pointer-events-auto" : "pointer-events-none",
+          "sm:hidden",
         ].join(" ")}
         aria-hidden={!openMenu}
       >
-        {/* Backdrop */}
         <div
           className={[
             "absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300",
@@ -367,15 +441,13 @@ export default function Header() {
           ].join(" ")}
           onClick={() => setOpenMenu(false)}
         />
-
-        {/* Panel */}
         <div
           ref={menuPanelRef}
           id="mobile-menu-panel"
           role="dialog"
           aria-modal="true"
           className={[
-            "absolute top-0 bottom-0 w-[78%] max-w-sm bg-white text-neutral-900 shadow-xl border-s border-black/5",
+            "absolute top-0 bottom-0 w-[78%] max-w-[330px] bg-white text-neutral-900 shadow-xl border-s border-black/5",
             "transition-transform duration-300",
             sideClass,
             openMenu ? translateEnd : translateStart,
@@ -412,17 +484,15 @@ export default function Header() {
               );
             })}
 
-            {/* CTA داخل المنيو */}
             <div className="pt-2">
               <button
-                className="w-full rounded-xl px-3 py-3 text-base font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition"
+                className="w-full rounded-xl px-3 py-3 text-base font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-90 transition"
                 onClick={() => setOpenMenu(false)}
               >
                 {t(TX.join)}
               </button>
             </div>
 
-            {/* محوّل لغة داخل المنيو */}
             <div className="pt-3 grid grid-cols-2 gap-2">
               <button
                 onClick={() => {
@@ -435,7 +505,7 @@ export default function Header() {
                 ].join(" ")}
                 aria-label="Switch to Arabic"
               >
-                🇦🇪 {t(TX.arabic)}
+                🇦🇪 {NATIVE_LANG.ar} {LANG_CODE.ar}
               </button>
               <button
                 onClick={() => {
@@ -448,12 +518,42 @@ export default function Header() {
                 ].join(" ")}
                 aria-label="Switch to English"
               >
-                🇬🇧 {t(TX.english)}
+                🇬🇧 {NATIVE_LANG.en} {LANG_CODE.en}
               </button>
             </div>
           </nav>
         </div>
       </div>
     </header>
+  );
+}
+
+/* ==== أيقونات بسيطة (SVG inline) ==== */
+function DumbbellIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M3 9h2v6H3V9zm2-2h2v10H5V7zm12 0h2v10h-2V7zm2 2h2v6h-2V9zM9 11h6v2H9v-2z" />
+    </svg>
+  );
+}
+function HomeIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M12 3l9 8h-3v9h-5v-6H11v6H6v-9H3l9-8z" />
+    </svg>
+  );
+}
+function UserIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M12 12a5 5 0 100-10 5 5 0 000 10zm-9 9a9 9 0 1118 0H3z" />
+    </svg>
+  );
+}
+function PhoneIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M6.6 10.8a15.5 15.5 0 006.6 6.6l2.2-2.2c.3-.3.8-.4 1.1-.2 1.2.5 2.6.8 4 .8.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C11.8 21 3 12.2 3 1c0-.6.4-1 1-1h3.2c.6 0 1 .4 1 1 0 1.4.3 2.8.8 4 .2.4.1.8-.2 1.1L6.6 10.8z" />
+    </svg>
   );
 }

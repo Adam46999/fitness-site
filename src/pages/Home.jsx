@@ -1,12 +1,10 @@
-import Header from "../components/layout/Header";
+import Header from "../components/header/Header";
 
 export default function Home() {
   return (
     <main className="min-h-screen">
       <Header />
-      <section className="p-8">
-        <h1 className="text-3xl font-bold">Header Ready</h1>
-      </section>
+      <section className="p-8"></section>
     </main>
   );
 }

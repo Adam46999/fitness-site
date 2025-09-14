@@ -2,12 +2,28 @@
 
 /* أساس نظيف */
 :root {
-  color-scheme: light dark;
+  color-scheme: light; /* نحذف dark عشان ما يفرض خلفية داكنة */
 }
+
 html,
 body,
 #root {
   height: 100%;
   margin: 0;
   padding: 0;
+  background: #fff; /* ✅ خلفية بيضاء */
+  color: #111; /* ✅ نص غامق مقروء */
+}
+
+/* 👇 نخلي الخط Rubik ينطبق على الكل */
+@layer base {
+  html {
+    @apply font-sans antialiased;
+  }
+}
+
+/* تنعيم العرض للنصوص */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
