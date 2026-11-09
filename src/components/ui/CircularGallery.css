@@ -1,0 +1,37 @@
+.circular-gallery {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  cursor: grab;
+}
+
+.circular-gallery:active {
+  cursor: grabbing;
+}
+.cg-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.cg-lightbox-card {
+  max-width: 980px;
+  width: 100%;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.55);
+  background: rgba(10, 10, 14, 0.6);
+}
+
+.cg-lightbox-img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
